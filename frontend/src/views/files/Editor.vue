@@ -14,8 +14,15 @@
     </header-bar>
 
     <breadcrumbs base="/files" noLink />
-
-    <form id="editor"></form>
+    
+    <editor-ui
+    ref="toastuiEditor"
+    :initialValue="startingValue"
+    initialEditType="wysiwyg"
+    height="500px"
+    previewStyle="vertical"
+    />
+  
   </div>
 </template>
 
@@ -26,23 +33,26 @@ import { theme } from "@/utils/constants";
 import buttons from "@/utils/buttons";
 import url from "@/utils/url";
 
-import ace from "ace-builds/src-min-noconflict/ace.js";
-import modelist from "ace-builds/src-min-noconflict/ext-modelist.js";
-import "ace-builds/webpack-resolver";
+import '@toast-ui/editor/dist/toastui-editor.css';
+import { Editor as EditorUi } from '@toast-ui/vue-editor';
 
 import HeaderBar from "@/components/header/HeaderBar";
 import Action from "@/components/header/Action";
 import Breadcrumbs from "@/components/Breadcrumbs";
 
 export default {
-  name: "editor",
+  name: "file editor",
   components: {
+    EditorUi,
     HeaderBar,
     Action,
     Breadcrumbs,
   },
   data: function () {
-    return {};
+    return {
+      fileContent: "",
+      startingValue : "",
+    };
   },
   computed: {
     ...mapState(["req", "user"]),
@@ -81,24 +91,13 @@ export default {
   },
   beforeDestroy() {
     window.removeEventListener("keydown", this.keyEvent);
-    this.editor.destroy();
   },
   mounted: function () {
-    const fileContent = this.req.content || "";
+    this.fileContent = this.req.content || "";
 
-    this.editor = ace.edit("editor", {
-      value: fileContent,
-      showPrintMargin: false,
-      readOnly: this.req.type === "textImmutable",
-      theme: "ace/theme/chrome",
-      mode: modelist.getModeForPath(this.req.name).mode,
-      wrap: true,
-    });
-
-    if (theme == "dark") {
-      this.editor.setTheme("ace/theme/twilight");
-    }
-  },
+    this.$refs.toastuiEditor.invoke('setMarkdown', this.fileContent)
+    
+    },
   methods: {
     back() {
       let uri = url.removeLastDir(this.$route.path) + "/";
@@ -120,8 +119,9 @@ export default {
       const button = "save";
       buttons.loading("save");
 
+      this.fileContent = this.$refs.toastuiEditor.invoke('getMarkdown');
       try {
-        await api.put(this.$route.path, this.editor.getValue());
+        await api.put(this.$route.path, this.fileContent);
         buttons.success(button);
       } catch (e) {
         buttons.done(button);
